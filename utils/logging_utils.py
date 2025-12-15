@@ -22,7 +22,8 @@ def log_step(step_name: str, details: dict = None):
     if details:
         for key, value in details.items():
             if isinstance(value, (dict, list)):
-                print(f"  {key}: {json.dumps(value, indent=2, ensure_ascii=False)}")
+                # Decimal 등 비JSON 타입이 있어도 로깅 때문에 파이프라인이 죽지 않도록 처리
+                print(f"  {key}: {json.dumps(value, indent=2, ensure_ascii=False, default=str)}")
             else:
                 print(f"  {key}: {value}")
     print()

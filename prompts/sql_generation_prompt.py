@@ -17,12 +17,22 @@ Rules:
 3. Use JOIN operations to combine multiple tables if needed to answer the question.
 4. Return ONLY the SQL query, nothing else - no explanations or markdown formatting.
 5. Ensure the SQL is valid and can be executed on PostgreSQL.
-6. Use standard SQL syntax compatible with PostgreSQL."""
+6. Use standard SQL syntax compatible with PostgreSQL.
+7. Evidence may be provided. If evidence is non-empty, follow it as the primary guidance for table/column/value selection.
+8. If evidence is empty, rely on the provided schema context only."""
 
 # 사용자 질문 프롬프트 템플릿
 USER_PROMPT_TEMPLATE = """<PrimaryTable>
 {primary_table}
 </PrimaryTable>
+
+<ClarifiedQuestion>
+{clarified_question}
+</ClarifiedQuestion>
+
+<Evidence>
+{evidence}
+</Evidence>
 
 <Question>
 {question}

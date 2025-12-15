@@ -10,7 +10,9 @@ from langchain_core.output_parsers import StrOutputParser
 from config.llm_config import get_llm
 from prompts.sql_generation_prompt import get_sql_generation_prompt
 from retrievers.db_retriever import get_dvdrental_retriever
+from chains.seed_evidence_chain import generate_seed_evidence
 from utils.logging_utils import log_step
+from utils.phoenix_observability import setup_phoenix_observability
 
 
 def format_docs(docs):
@@ -61,6 +63,10 @@ def create_text_to_sql_chain():
         6. SQL 정리
         7. 출력: 최종 SQL 쿼리
     """
+    # Phoenix 계측을 먼저 초기화해 LangChain 호출이 추적되도록 합니다.
+    setup_phoenix_observability()
+
+    # 계측 후에 LLM/리트리버 등을 생성해야 호출이 추적됩니다.
     retriever = get_dvdrental_retriever(limit=10)
     prompt = get_sql_generation_prompt()
     llm = get_llm()
@@ -70,11 +76,21 @@ def create_text_to_sql_chain():
 
     # 1. 리트리버를 통한 관련 테이블 검색 및 포맷팅
     def get_context_and_primary_table(question: str):
-        """리트리버 결과에서 context와 primary_table을 추출"""
+        """리트리버 결과에서 context/primary_table을 추출하고(옵션) SEED evidence를 생성"""
         docs = retriever.invoke(question)
         context = format_docs(docs)
         primary_table = docs[0].metadata['table_name'] if docs else ""
-        return {"context": context, "primary_table": primary_table, "question": question}
+
+        # SEED-lite evidence 생성 (ENABLE_SEED_EVIDENCE=1 일 때만 실제 LLM 호출)
+        seed = generate_seed_evidence(question=question, docs=docs)
+
+        return {
+            "context": context,
+            "primary_table": primary_table,
+            "question": question,
+            "clarified_question": seed.clarified_question,
+            "evidence": seed.evidence,
+        }
 
     # 2. 최종 체인 구성: 질문 처리 → 프롬프트 → LLM → 출력 파싱 → SQL 정리
     text_to_sql_chain = (

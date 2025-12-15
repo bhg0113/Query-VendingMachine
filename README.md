@@ -188,6 +188,51 @@ python testset.py
 
 ```
 
+---
+## Phoenix 기반 디버깅/모니터링
+- 목적: LangChain 호출/SQL 생성 과정을 Phoenix UI에서 추적
+- 기본 포트: 6006 (로컬/도커 동일)
+
+### 가상환경(로컬) 실행 순서
+1) Phoenix 서버 기동  
+```bash
+python -m phoenix.server --port 6006
+```
+2) 패키지 설치 및 앱 실행  
+```bash
+pip install -r requirements.txt  # arize-phoenix 포함
+streamlit run main.py
+```
+
+### Docker 실행 순서
+1) 컨테이너 올리기 (Phoenix 포함)  
+```bash
+docker compose up -d phoenix db web
+```
+2) 로그 확인  
+```bash
+docker logs -f text2sql-web --tail 20
+```
+
+### 설정 토글
+- `PHOENIX_SERVER_URL`로 서버 주소 지정 (기본: 로컬 `http://localhost:6006`, 컨테이너 내부는 `http://phoenix:6006`)
+- `ENABLE_PHOENIX=0`으로 계측 비활성화 가능
+
+---
+## SEED-lite(Evidence Generation) 통합 사용법
+
+이 프로젝트는 **SEED(Automatic Evidence Generation)** 스타일로, 질문에 대한 **evidence(조인/컬럼/값 힌트)**를 생성해 SQL 프롬프트에 주입하는 옵션을 제공합니다.  
+자세한 설명은 `SEED_INTEGRATION.md`를 참고하세요. (참고: [SEED 논문 PDF](file:///Users/kane/Query-VendingMachine/SEED_%20Enhancing%20Text-to-SQL%20Performance%20and%20Practical%20Usability%20Through%20Automatic%20Evidence%20Generation.pdf), [SEED 리뷰](https://www.themoonlight.io/ko/review/seed-enhancing-text-to-sql-performance-and-practical-usability-through-automatic-evidence-generation))
+
+### 활성화 방법(토글)
+- `.env`에 아래를 추가하면 evidence 생성이 켜집니다.
+
+```
+ENABLE_SEED_EVIDENCE=1
+```
+
+> 주의: ON이면 질문마다 추가 LLM 호출이 발생할 수 있어 비용/지연이 증가합니다.
+
 
 ---
 
@@ -234,6 +279,8 @@ python testset.py
 
 #### experiments/
 - 실험에 사용될 테스트용 데이터셋과 방법론 별로 실험결과를 저장하는 경로입니다.
+- `dvdrental_testset.csv`: 기본 SQL 문제 (31개) - COUNT, JOIN, 기본 집계 등
+- `dvdrental_testset_advanced.csv`: 고급 SQL 문제 (39개) - 복잡한 JOIN, 윈도우 함수, 서브쿼리, 코딩테스트 수준의 문제
 
 ---
 

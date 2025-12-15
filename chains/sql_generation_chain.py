@@ -17,7 +17,7 @@ def create_sql_generation_chain():
         Runnable: LangChain 체인 (프롬프트 | LLM 조합)
     
     체인 구조:
-        1. 입력: {"context": str, "question": str, "primary_table": str}
+        1. 입력: {"context": str, "question": str, "primary_table": str, "evidence": str, "clarified_question": str}
         2. 프롬프트 템플릿에 변수 주입
         3. LLM을 통해 SQL 생성
         4. 출력: LLM의 응답 (AIMessage 객체)
@@ -25,8 +25,15 @@ def create_sql_generation_chain():
     prompt = get_sql_generation_prompt()
     llm = get_llm()
     
-    # LCEL을 사용한 체인 조합
-    chain = prompt | llm
+    # SEED 변수(evidence/clarified_question)가 없더라도 동작하도록 기본값을 주입
+    chain = (
+        RunnablePassthrough.assign(
+            evidence=lambda x: x.get("evidence", ""),
+            clarified_question=lambda x: x.get("clarified_question", x.get("question", "")),
+        )
+        | prompt
+        | llm
+    )
     
     return chain
 

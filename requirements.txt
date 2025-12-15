@@ -79,3 +79,6 @@ wcwidth==0.2.14
 langchain
 langchain-openai
 langchain-community
+arize-phoenix
+openinference-instrumentation-langchain
+openinference-instrumentation-openai

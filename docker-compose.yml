@@ -1,7 +1,30 @@
+x-app-build: &app_build
+  context: .
+  dockerfile: Dockerfile
+
 services:
 
+  phoenix:
+    image: text2sql-app:latest
+    container_name: text2sql-phoenix
+    restart: always
+    working_dir: /app
+    volumes:
+      - ./:/app
+    environment:
+      PYTHONPATH: /app
+      PHOENIX_HOST: 0.0.0.0
+      PHOENIX_PORT: 6006
+    ports:
+      - "6006:6006"
+    command: >
+      /bin/bash -c "phoenix serve"
+
   db:
-    image: ankane/pgvector
+    platform: linux/arm64
+    build:
+      context: .
+      dockerfile: Dockerfile.pgvector
     container_name: text2sql-db
     restart: always
     environment:
@@ -9,39 +32,59 @@ services:
       POSTGRES_PASSWORD: password
       POSTGRES_DB: text2sqldb
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - ./data:/var/lib/postgresql/data
       - ./init/init-db.sh:/docker-entrypoint-initdb.d/init-db.sh
       - ./dvdrental.tar:/docker-entrypoint-initdb.d/dvdrental.tar
 
   web:
-    image: python:3.11-slim
+    build: *app_build
+    image: text2sql-app:latest
     container_name: text2sql-web
     restart: always
-    build:
-      context: .
-      dockerfile: Dockerfile
+    env_file:
+      - .env
     ports:
       - "8501:8501"
     environment:
-      - PYTHONPATH=/app
+      PYTHONPATH: /app
+      DB_HOST: db
+      # 컨테이너 간 통신에서는 DB 서비스의 "컨테이너 내부 포트(5432)"로 접속해야 합니다.
+      # (호스트 공개 포트 5433은 로컬 PC에서 접근할 때만 사용)
+      DB_PORT: 5432
+      # OTLP 전송 설정 (Phoenix HTTP 수집 엔드포인트)
+      # - 실제 Exporter 구성은 utils/phoenix_observability.py에서 수행합니다.
+      # - 아래 값은 서비스명/기본 동작을 명시하기 위한 보조 설정입니다.
+      OTEL_SERVICE_NAME: text2sql-web
+      OTEL_RESOURCE_ATTRIBUTES: service.name=text2sql-web
+      PHOENIX_SERVER_URL: ${PHOENIX_SERVER_URL:-http://phoenix:6006}
+      ENABLE_PHOENIX: ${ENABLE_PHOENIX:-1}
     volumes:
       - ./:/app
     command: /bin/bash -c "python /app/init/init_table_docs.py && streamlit run main.py --server.port=8501 --server.address=0.0.0.0"
 
     depends_on:
       - db
+      - phoenix
 
   runner:
-    image: python:3.11-slim
+    image: text2sql-app:latest
     container_name: text2sql-runner
     restart: "no"
-    build:
-      context: .
-      dockerfile: Dockerfile
+    env_file:
+      - .env
     environment:
-      - PYTHONPATH=/app
+      PYTHONPATH: /app
+      DB_HOST: db
+      # 컨테이너 간 통신에서는 DB 서비스의 "컨테이너 내부 포트(5432)"로 접속해야 합니다.
+      DB_PORT: 5432
+      # OTLP 전송 설정 (Phoenix HTTP 수집 엔드포인트)
+      # - 실제 Exporter 구성은 utils/phoenix_observability.py에서 수행합니다.
+      OTEL_SERVICE_NAME: text2sql-runner
+      OTEL_RESOURCE_ATTRIBUTES: service.name=text2sql-runner
+      PHOENIX_SERVER_URL: ${PHOENIX_SERVER_URL:-http://phoenix:6006}
+      ENABLE_PHOENIX: ${ENABLE_PHOENIX:-1}
     volumes:
       - ./:/app
     working_dir: /app
@@ -50,3 +93,4 @@ services:
     depends_on:
       - db
       - web
+      - phoenix
