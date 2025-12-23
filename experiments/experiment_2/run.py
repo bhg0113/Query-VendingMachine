@@ -1,4 +1,6 @@
-# LangChain 모듈 임포트
+# 고급 SQL 문제 평가 실험 (Advanced SQL Test Evaluation)
+# 다양한 테이블을 조인하고 복잡한 쿼리를 다루는 능력을 평가합니다.
+
 from chains.text_to_sql_chain import invoke_text_to_sql_chain
 from utils import run_query, log_step
 import pandas as pd
@@ -6,11 +8,19 @@ import os
 import traceback
 
 def run():
+    """
+    고급 SQL 테스트셋으로 모델 성능을 평가합니다.
+    
+    Returns:
+        pd.DataFrame: 결과를 포함한 데이터프레임 (infer_sql, infer 컬럼 추가)
+    """
 
-    if os.path.exists("experiments/experiment_1/result.csv"):
-        return pd.read_csv("experiments/experiment_1/result.csv")
+    # 결과 파일이 이미 존재하면 반환
+    if os.path.exists("experiments/experiment_2/result.csv"):
+        return pd.read_csv("experiments/experiment_2/result.csv")
 
-    testset = pd.read_csv("experiments/dvdrental_testset.csv")
+    # 고급 테스트셋 로드
+    testset = pd.read_csv("experiments/dvdrental_testset_advanced.csv")
     question = testset["question"].tolist()
 
     # 질문 개수와 결과 개수를 항상 1:1로 맞추기 위해 DataFrame에 바로 기록합니다.
@@ -22,7 +32,7 @@ def run():
         sql = ""
         result_csv = ""
         try:
-            log_step(f"🔄 질문 {idx+1}/{len(question)} 처리 중", {"질문": natural_query})
+            log_step(f"🔄 고급 질문 {idx+1}/{len(question)} 처리 중", {"질문": natural_query})
             
             # 모델이 생성한 SQL
             sql = invoke_text_to_sql_chain(natural_query)
@@ -49,5 +59,6 @@ def run():
             testset.at[row_key, "infer_sql"] = sql
             testset.at[row_key, "infer"] = result_csv
 
-    testset.to_csv("experiments/experiment_1/result.csv", index=False, encoding="utf-8-sig")
+    testset.to_csv("experiments/experiment_2/result.csv", index=False, encoding="utf-8-sig")
     return testset
+

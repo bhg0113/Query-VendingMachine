@@ -6,7 +6,7 @@ from utils import run_query, log_step
 
 natural_query = "배우는 총 몇명일까?"
 
-sql = invoke_text_to_sql_chain(natural_query, )
+sql = invoke_text_to_sql_chain(natural_query)
 
 rows = run_query(query=sql, dvd=True)
 df = pd.DataFrame(rows)

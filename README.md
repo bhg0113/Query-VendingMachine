@@ -196,7 +196,7 @@ python testset.py
 ### 가상환경(로컬) 실행 순서
 1) Phoenix 서버 기동  
 ```bash
-python -m phoenix.server --port 6006
+phoenix serve
 ```
 2) 패키지 설치 및 앱 실행  
 ```bash
@@ -218,6 +218,26 @@ docker logs -f text2sql-web --tail 20
 - `PHOENIX_SERVER_URL`로 서버 주소 지정 (기본: 로컬 `http://localhost:6006`, 컨테이너 내부는 `http://phoenix:6006`)
 - `ENABLE_PHOENIX=0`으로 계측 비활성화 가능
 
+### (추가) Datasets & Experiments: 테스트셋 업로드 + 실행결과 동치 평가
+- 목적: `experiments/*.csv` 테스트셋을 Phoenix Dataset으로 올리고, **Execution-match(실행 결과 동치)** 기준으로 실험/비교
+- 표시 위치: Phoenix UI 좌측 `Datasets & Experiments`
+
+#### 1) Dataset 업로드
+```bash
+python experiments/phoenix_upload_datasets.py --all
+```
+
+#### 2) 실험 실행(Execution-match 평가 포함)
+```bash
+# 기본 테스트셋
+python experiments/phoenix_run_experiment.py --dataset dvdrental-basic --name "baseline-seed-off"
+
+# 고급 테스트셋
+python experiments/phoenix_run_experiment.py --dataset dvdrental-advanced --name "baseline-advanced-seed-off"
+```
+
+> 참고: `.env`에 `ENABLE_SEED_EVIDENCE=1`을 켠 뒤 동일 실험을 다시 실행하면, Phoenix에서 비용/지연/정확도(Execution-match) 변화를 비교할 수 있습니다.
+
 ---
 ## SEED-lite(Evidence Generation) 통합 사용법
 
@@ -229,6 +249,7 @@ docker logs -f text2sql-web --tail 20
 
 ```
 ENABLE_SEED_EVIDENCE=1
+SEED_MODE=lite
 ```
 
 > 주의: ON이면 질문마다 추가 LLM 호출이 발생할 수 있어 비용/지연이 증가합니다.
