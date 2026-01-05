@@ -1,19 +1,29 @@
-﻿question,sql,label
+﻿question,sql,label,infer_sql,infer
 "결제가 가장 많이 발생한 시각(시 단위)별 결제 건수를 집계하고, 결제 건수가 가장 많은 시각 한 개를 구하시오. 최종 결과는 1번째 컬럼 'hour_of_day'(0 이상 23 이하의 정수 시각), 2번째 컬럼 'payment_count'(해당 시각의 결제 건수) 순서로 구성되어야 한다. 결과는 payment_count 내림차순, hour_of_day 오름차순으로 정렬한 뒤 가장 앞의 1개 행만 반환하시오.","SELECT
     EXTRACT(HOUR FROM payment_date)::int AS hour_of_day, -- 시각(0~23)별 결제 시각
     COUNT(*) AS payment_count -- 해당 시각의 결제 건수
 FROM payment
 GROUP BY hour_of_day -- 시각별 집계
 ORDER BY payment_count DESC, hour_of_day ASC -- 결제 건수 내림차순 · 시각 오름차순
-LIMIT 1; -- 가장 많은 시각 1개만 반환","13,784"
-"영화 상영 시간의 평균 길이가 가장 짧은 카테고리를 구하시오. 최종 결과는 1번째 컬럼 'category_name'(가장 짧은 평균 상영 시간을 가진 카테고리의 이름)만 포함해야 한다. 결과는 평균 상영 시간이 짧은 순으로 정렬된 결과 중 가장 앞의 1개 행만 반환하시오.","SELECT
+LIMIT 1; -- 가장 많은 시각 1개만 반환","13,784","SELECT (EXTRACT(HOUR FROM payment_date))::int AS hour_of_day, COUNT(*) AS payment_count
+FROM payment
+GROUP BY (EXTRACT(HOUR FROM payment_date))::int
+ORDER BY payment_count DESC, hour_of_day ASC
+LIMIT 1;","13,784"
+영화 상영 시간의 평균 길이가 가장 짧은 카테고리를 구하시오. 최종 결과는 1번째 컬럼 'category_name'(가장 짧은 평균 상영 시간을 가진 카테고리의 이름)만 포함해야 한다. 결과는 평균 상영 시간이 짧은 순으로 정렬된 결과 중 가장 앞의 1개 행만 반환하시오.,"SELECT
     c.name AS category_name -- 평균 상영 시간이 가장 짧은 카테고리 이름
 FROM category c
 JOIN film_category fc ON c.category_id = fc.category_id
 JOIN film f ON f.film_id = fc.film_id
 GROUP BY c.name
 ORDER BY AVG(f.length) ASC -- 평균 상영 시간이 짧은 순서로 정렬
-LIMIT 1; -- 가장 짧은 카테고리 1개만 반환","Sci-Fi"
+LIMIT 1; -- 가장 짧은 카테고리 1개만 반환",Sci-Fi,"SELECT c.name AS category_name
+FROM category c
+JOIN film_category fc ON c.category_id = fc.category_id
+JOIN film f ON fc.film_id = f.film_id
+GROUP BY c.name
+ORDER BY AVG(f.length) ASC
+LIMIT 1;",Sci-Fi
 "각 카테고리별로 영화의 대여료와 대여 횟수를 이용해 추정한 총 대여료 수익을 계산하고, 이 수익이 큰 순서대로 상위 3개 카테고리를 구하시오. 최종 결과는 1번째 컬럼 'category_name'(카테고리 이름), 2번째 컬럼 'total_revenue'(해당 카테고리의 추정 총 대여료 수익으로 소수점 둘째 자리에서 반올림한 값) 순서로 구성되어야 한다. 결과는 total_revenue 내림차순, category_name 오름차순으로 정렬한 뒤 상위 3개 행만 반환하시오.","SELECT
     c.name AS category_name,
     ROUND(
@@ -38,6 +48,18 @@ GROUP BY c.name -- 카테고리별 총 수익 집계
 ORDER BY total_revenue DESC, category_name ASC -- 수익 내림차순 · 이름 오름차순
 LIMIT 3; -- 상위 3개 카테고리","Sports,3617.21
 Drama,3373.40
+Sci-Fi,3289.99","SELECT
+  c.name AS category_name,
+  ROUND(SUM(f.rental_rate), 2) AS total_revenue
+FROM category c
+JOIN film_category fc ON c.category_id = fc.category_id
+JOIN film f ON fc.film_id = f.film_id
+JOIN inventory i ON f.film_id = i.film_id
+JOIN rental r ON i.inventory_id = r.inventory_id
+GROUP BY c.category_id, c.name
+ORDER BY total_revenue DESC, category_name ASC
+LIMIT 3;","Sports,3617.21
+Drama,3373.40
 Sci-Fi,3289.99"
 "평균적으로 출연한 영화 수보다 더 많은 영화에 출연한 배우들을 구하시오. 최종 결과는 1번째 컬럼 'actor_name'(배우의 전체 이름을 first_name과 last_name을 공백으로 이어 붙인 문자열), 2번째 컬럼 'film_count'(해당 배우가 출연한 영화 개수) 순서로 구성되어야 한다. 전체 배우의 film_count 평균보다 큰 film_count를 가진 배우만 포함하고, 결과는 film_count 오름차순, actor_name 오름차순으로 하위 5개의 행만 조회하시오","SELECT
     a.first_name || ' ' || a.last_name AS actor_name, -- 배우 풀네임
@@ -59,7 +81,34 @@ LIMIT 5; -- 출연 수 오름차순, 이름 오름차순","Cate Harris,28
 Cuba Olivier,28
 Dan Harris,28
 Goldie Brody,28
-Harrison Bale,28"
+Harrison Bale,28","WITH actor_counts AS (
+  SELECT a.actor_id, a.first_name, a.last_name, COUNT(fa.film_id) AS film_count
+  FROM actor a
+  JOIN film_actor fa ON a.actor_id = fa.actor_id
+  GROUP BY a.actor_id, a.first_name, a.last_name
+),
+avg_fc AS (
+  SELECT AVG(film_count::numeric) AS avg_val FROM actor_counts
+),
+eligible AS (
+  SELECT ac.first_name, ac.last_name, ac.film_count
+  FROM actor_counts ac
+  JOIN avg_fc ON true
+  WHERE ac.film_count > avg_fc.avg_val
+),
+numbered AS (
+  SELECT e.*, ROW_NUMBER() OVER (ORDER BY film_count ASC, first_name || ' ' || last_name ASC) AS rn,
+         COUNT(*) OVER () AS total_rows
+  FROM eligible e
+)
+SELECT first_name || ' ' || last_name AS actor_name, film_count
+FROM numbered
+WHERE rn > GREATEST(total_rows - 5, 0)
+ORDER BY film_count ASC, actor_name ASC;","Sandra Kilmer,37
+Matthew Carrey,39
+Mary Keitel,40
+Walter Torn,41
+Gina Degeneres,42"
 "각 고객별 총 결제 금액을 계산하고, 총 결제 금액이 가장 높은 상위 3명의 고객을 구하시오. 최종 결과는 1번째 컬럼 'customer_name'(고객의 전체 이름을 first_name과 last_name을 공백으로 이어 붙인 문자열), 2번째 컬럼 'total_paid'(해당 고객의 모든 결제 금액 합계는 소수점 두자리로 나타낸다) 순서로 구성되어야 한다. 결과는 total_paid 내림차순, customer_name 오름차순으로 정렬한 뒤 상위 3개 행만 반환하시오.","SELECT
     c.first_name || ' ' || c.last_name AS customer_name, -- 고객 풀네임
     ROUND(SUM(p.amount), 2) AS total_paid -- 고객별 총 결제 금액(소수 둘째 자리)
@@ -68,6 +117,14 @@ JOIN payment p ON c.customer_id = p.customer_id
 GROUP BY c.customer_id, c.first_name, c.last_name -- 고객 단위 집계
 ORDER BY total_paid DESC, customer_name ASC -- 결제액 내림차순, 이름 오름차순
 LIMIT 3; -- 상위 3명","Eleanor Hunt,211.55
+Karl Seal,208.58
+Marion Snyder,194.61","SELECT c.first_name || ' ' || c.last_name AS customer_name,
+       ROUND(SUM(p.amount), 2) AS total_paid
+FROM payment p
+JOIN customer c ON p.customer_id = c.customer_id
+GROUP BY c.customer_id, c.first_name, c.last_name
+ORDER BY total_paid DESC, customer_name ASC
+LIMIT 3;","Eleanor Hunt,211.55
 Karl Seal,208.58
 Marion Snyder,194.61"
 "각 도시별로 서로 다른 고객 수와 평균 결제 금액을 계산하고, 고객 수가 2명 이상인 도시만 조회하시오. 최종 결과는 1번째 컬럼 'city'(도시 이름), 2번째 컬럼 'customer_count'(서로 다른 고객 수), 3번째 컬럼 'avg_payment'(해당 도시 고객들의 결제 금액 평균으로 소수점 둘째 자리에서 반올림한 값) 순서로 구성되어야 한다. 결과는 customer_count 내림차순, city 오름차순으로 정렬하시오.","SELECT
@@ -81,6 +138,16 @@ JOIN payment p ON c.customer_id = p.customer_id
 GROUP BY ci.city
 HAVING COUNT(DISTINCT c.customer_id) >= 2 -- 고객 수 2명 이상 도시만
 ORDER BY customer_count DESC, city ASC; -- 고객 수 내림차순, 도시명 오름차순","Aurora,2,3.80
+London,2,3.79","SELECT c.city AS city,
+       COUNT(DISTINCT p.customer_id) AS customer_count,
+       ROUND(AVG(p.amount), 2) AS avg_payment
+FROM payment p
+JOIN customer cu ON p.customer_id = cu.customer_id
+JOIN address a ON cu.address_id = a.address_id
+JOIN city c ON a.city_id = c.city_id
+GROUP BY c.city
+HAVING COUNT(DISTINCT p.customer_id) >= 2
+ORDER BY customer_count DESC, city ASC;","Aurora,2,3.80
 London,2,3.79"
 "각 영화 등급별로 평균 대여 기간과 평균 교체 비용을 계산하고, 평균 교체 비용이 20 이상인 등급만 교체 비용이 큰 순서대로 나열하시오. 최종 결과는 1번째 컬럼 'rating'(영화 등급), 2번째 컬럼 'avg_rental_duration'(해당 등급 영화들의 평균 대여 기간), 3번째 컬럼 'avg_replacement_cost'(해당 등급 영화들의 평균 교체 비용) 순서로 구성되어야 한다. avg_rental_duration와 avg_replacement_cost는 소수점 둘째 자리에서 반올림한 값이어야 하며, 결과는 avg_replacement_cost 내림차순으로 정렬하시오.","SELECT
     rating AS rating, -- 영화 등급
@@ -90,6 +157,16 @@ FROM film
 GROUP BY rating
 HAVING AVG(replacement_cost) >= 20 -- 평균 교체 비용 20 이상인 등급만
 ORDER BY avg_replacement_cost DESC; -- 교체 비용 내림차순","PG-13,5.05,20.40
+R,4.77,20.23
+NC-17,5.14,20.14
+G,4.84,20.12","SELECT
+  rating,
+  ROUND(AVG(rental_duration)::numeric, 2) AS avg_rental_duration,
+  ROUND(AVG(replacement_cost)::numeric, 2) AS avg_replacement_cost
+FROM film
+GROUP BY rating
+HAVING AVG(replacement_cost) >= 20
+ORDER BY avg_replacement_cost DESC;","PG-13,5.05,20.40
 R,4.77,20.23
 NC-17,5.14,20.14
 G,4.84,20.12"
@@ -103,7 +180,16 @@ JOIN inventory i ON r.inventory_id = i.inventory_id
 JOIN film f ON i.film_id = f.film_id
 GROUP BY s.staff_id, s.first_name, s.last_name
 ORDER BY rental_count DESC, staff_name ASC; -- 대여 건수 내림차순, 이름 오름차순","Mike Hillyer,8040,23639.60
-Jon Stephens,8004,23571.96"
+Jon Stephens,8004,23571.96","SELECT
+  (s.first_name || ' ' || s.last_name) AS staff_name,
+  COUNT(r.rental_id) AS rental_count,
+  ROUND(COALESCE(SUM(p.amount), 0), 2) AS total_revenue
+FROM rental r
+JOIN staff s ON r.staff_id = s.staff_id
+LEFT JOIN payment p ON r.rental_id = p.rental_id
+GROUP BY s.staff_id, s.first_name, s.last_name
+ORDER BY rental_count DESC, staff_name ASC;","Mike Hillyer,8044,30498.71
+Jon Stephens,8004,30813.33"
 "서로 다른 두 배우가 같은 영화에 함께 출연한 횟수를 세고, 이 횟수가 가장 많은 배우 쌍을 구하시오. 최종 결과는 1번째 컬럼 'actor1'(첫 번째 배우의 전체 이름을 first_name과 last_name을 공백으로 이어 붙인 문자열), 2번째 컬럼 'actor2'(두 번째 배우의 전체 이름을 같은 방식으로 만든 문자열), 3번째 컬럼 'shared_films'(두 배우가 함께 출연한 영화 개수) 순서로 구성되어야 한다. 결과는 shared_films 내림차순으로 정렬하고 가장 앞의 1개 행만 반환하시오.","SELECT
     a1.first_name || ' ' || a1.last_name AS actor1, -- 배우1 풀네임
     a2.first_name || ' ' || a2.last_name AS actor2, -- 배우2 풀네임
@@ -114,7 +200,18 @@ JOIN actor a1 ON fa1.actor_id = a1.actor_id
 JOIN actor a2 ON fa2.actor_id = a2.actor_id
 GROUP BY fa1.actor_id, fa2.actor_id, a1.first_name, a1.last_name, a2.first_name, a2.last_name
 ORDER BY shared_films DESC
-LIMIT 1; -- 함께 출연 횟수가 가장 많은 한 쌍","Julia Mcqueen,Henry Berry,7"
+LIMIT 1; -- 함께 출연 횟수가 가장 많은 한 쌍","Julia Mcqueen,Henry Berry,7","SELECT a1.first_name || ' ' || a1.last_name AS actor1,
+       a2.first_name || ' ' || a2.last_name AS actor2,
+       COUNT(DISTINCT fa1.film_id) AS shared_films
+FROM film_actor fa1
+JOIN film_actor fa2
+  ON fa1.film_id = fa2.film_id
+ AND fa1.actor_id < fa2.actor_id
+JOIN actor a1 ON fa1.actor_id = a1.actor_id
+JOIN actor a2 ON fa2.actor_id = a2.actor_id
+GROUP BY a1.actor_id, a2.actor_id, a1.first_name, a1.last_name, a2.first_name, a2.last_name
+ORDER BY shared_films DESC
+LIMIT 1;","Julia Mcqueen,Henry Berry,7"
 "대여를 4회 이상 한 고객들에 대해, 각 고객의 첫 대여 날짜와 마지막 대여 날짜 사이의 일수를 계산하고 그 일수의 평균을 구하시오. 최종 결과는 1번째 컬럼 'avg_days_between_rentals'(위 고객들의 첫 대여와 마지막 대여 사이 일수의 평균으로 소수점 첫째 자리에서 반올림한 정수 값)만 포함해야 한다.","SELECT
     ROUND(AVG(date_diff)) AS avg_days_between_rentals -- 4회 이상 고객의 첫/마지막 대여 간 평균 일수
 FROM (
@@ -123,7 +220,14 @@ FROM (
     JOIN rental r ON c.customer_id = r.customer_id
     GROUP BY c.customer_id
     HAVING COUNT(r.rental_id) >= 4 -- 대여 4회 이상 고객만 대상
-) AS rental_stats;",131
+) AS rental_stats;",131,"SELECT ROUND(AVG(days_between))::int AS avg_days_between_rentals
+FROM (
+  SELECT customer_id,
+         (MAX(rental_date)::date - MIN(rental_date)::date) AS days_between
+  FROM rental
+  GROUP BY customer_id
+  HAVING COUNT(*) >= 4
+) AS sub;",131
 "각 배우별로 출연한 영화들의 총 상영 시간과 평균 상영 시간을 계산하고, 총 상영 시간이 4000분 이상인 배우만 조회하시오. 최종 결과는 1번째 컬럼 'actor_name'(배우의 전체 이름을 first_name과 last_name을 공백으로 이어 붙인 문자열), 2번째 컬럼 'total_length'(해당 배우가 출연한 영화 상영 시간의 총합, 단위 분), 3번째 컬럼 'avg_length'(해당 배우가 출연한 영화 상영 시간의 평균으로 소수점 둘째 자리에서 반올림한 값) 순서로 구성되어야 한다. 결과는 total_length 내림차순, actor_name 오름차순으로 정렬해 10개의 행만 조회하시오.","SELECT
     a.first_name || ' ' || a.last_name AS actor_name, -- 배우 풀네임
     SUM(f.length) AS total_length, -- 출연 영화 상영 시간 합
@@ -134,6 +238,24 @@ JOIN film f ON fa.film_id = f.film_id
 GROUP BY a.actor_id, a.first_name, a.last_name
 HAVING SUM(f.length) >= 4000 -- 총 상영 시간 4000분 이상 배우만
 ORDER BY total_length DESC, actor_name ASC; -- 총합 내림차순, 이름 오름차순","Mary Keitel,4962,124.05
+Matthew Carrey,4809,123.31
+Walter Torn,4517,110.17
+Gina Degeneres,4465,106.31
+Sandra Kilmer,4441,120.03
+Scarlett Damon,4341,120.58
+Uma Wood,4299,122.83
+Albert Johansson,4179,126.64
+Sidney Crowe,4103,120.68
+Daryl Wahlberg,4059,130.94","SELECT (a.first_name || ' ' || a.last_name) AS actor_name,
+       SUM(f.length) AS total_length,
+       ROUND(AVG(f.length)::numeric, 2) AS avg_length
+FROM actor a
+JOIN film_actor fa ON a.actor_id = fa.actor_id
+JOIN film f ON fa.film_id = f.film_id
+GROUP BY a.actor_id, a.first_name, a.last_name
+HAVING SUM(f.length) >= 4000
+ORDER BY total_length DESC, actor_name ASC
+LIMIT 10;","Mary Keitel,4962,124.05
 Matthew Carrey,4809,123.31
 Walter Torn,4517,110.17
 Gina Degeneres,4465,106.31
@@ -157,6 +279,25 @@ LEFT JOIN address a_cust ON a_cust.city_id = ci_cust.city_id
 LEFT JOIN customer cu    ON cu.address_id = a_cust.address_id
 GROUP BY co.country
 ORDER BY store_count DESC, co.country ASC;","Australia,1,0
+Canada,1,5","SELECT co.country AS country,
+       sc.store_count AS store_count,
+       COALESCE(cc.customer_count, 0) AS customer_count
+FROM country co
+JOIN (
+  SELECT ci.country_id, COUNT(DISTINCT s.store_id) AS store_count
+  FROM store s
+  JOIN address a ON s.address_id = a.address_id
+  JOIN city ci ON a.city_id = ci.city_id
+  GROUP BY ci.country_id
+) sc ON sc.country_id = co.country_id
+LEFT JOIN (
+  SELECT ci.country_id, COUNT(DISTINCT cu.customer_id) AS customer_count
+  FROM customer cu
+  JOIN address a ON cu.address_id = a.address_id
+  JOIN city ci ON a.city_id = ci.city_id
+  GROUP BY ci.country_id
+) cc ON cc.country_id = co.country_id
+ORDER BY sc.store_count DESC, co.country ASC;","Australia,1,0
 Canada,1,5"
 "가장 많이 대여(결제와 무관한)를 처리한 직원을 찾고, 그 직원이 속한 점포에 있는 모든 직원이 처리한 대여 건수의 총합을 구하시오. 최종 결과는 1번째 컬럼 'total_rental_count'(해당 점포의 모든 직원이 처리한 대여 건수 합계) 한 컬럼만 포함해야 한다.","SELECT
     SUM(rental_count) AS total_rental_count -- 최다 처리 직원이 속한 점포의 총 대여 건수
@@ -176,7 +317,24 @@ WHERE store_id = (
         ORDER BY rental_count DESC
         LIMIT 1 -- 가장 많은 대여를 처리한 직원이 속한 점포
     ) top_staff
-);",8040
+);",8040,"WITH staff_rental_counts AS (
+  SELECT staff_id, COUNT(*) AS cnt
+  FROM rental
+  GROUP BY staff_id
+),
+max_cnt AS (
+  SELECT MAX(cnt) AS max_cnt FROM staff_rental_counts
+),
+top_store_ids AS (
+  SELECT s.store_id
+  FROM staff s
+  JOIN staff_rental_counts src ON s.staff_id = src.staff_id
+  JOIN max_cnt m ON src.cnt = m.max_cnt
+)
+SELECT COALESCE(SUM(src.cnt),0) AS total_rental_count
+FROM staff_rental_counts src
+JOIN staff s ON src.staff_id = s.staff_id
+WHERE s.store_id IN (SELECT store_id FROM top_store_ids);",8040
 "각 카테고리별로 해당 카테고리 영화들 중 출연한 배우 수가 가장 많은 영화를 찾고, 그 정보와 카테고리 내 출연 배우 수 순위를 조회하시오. 최종 결과는 1번째 컬럼 'category_name'(카테고리 이름), 2번째 컬럼 'title'(영화 제목), 3번째 컬럼 'actor_count'(해당 영화에 출연한 서로 다른 배우 수), 4번째 컬럼 'actor_count_rank'(같은 카테고리 내에서 배우 수 기준 내림차순으로 매긴 순위) 순서로 구성되어야 한다. 전체 결과는 category_name 오름차순, actor_count_rank 오름차순으로 정렬하고 예시로 5개 행만 반환한다고 가정하시오.","WITH ranked_films AS (
 SELECT
     c.name AS category_name, -- 카테고리 이름
@@ -201,6 +359,35 @@ FROM ranked_films
 WHERE actor_count_rank = 1 -- 카테고리별로 배우 수가 가장 많은 영화만 선택
 ORDER BY category_name, title -- 카테고리 이름, 제목 오름차순 정렬
 LIMIT 5; -- 예시로 5개 카테고리만 반환한다고 가정","Action,Sky Miracle,12,1
+Animation,Titanic Boondock,12,1
+Children,Maker Gables,11,1
+Classics,Dracula Crystal,13,1
+Comedy,Crazy Home,13,1","WITH film_counts AS (
+  SELECT fc.category_id,
+         f.film_id,
+         f.title,
+         COUNT(DISTINCT fa.actor_id) AS actor_count
+  FROM film_category fc
+  JOIN film f ON fc.film_id = f.film_id
+  LEFT JOIN film_actor fa ON f.film_id = fa.film_id
+  GROUP BY fc.category_id, f.film_id, f.title
+),
+ranked AS (
+  SELECT category_id,
+         title,
+         actor_count,
+         RANK() OVER (PARTITION BY category_id ORDER BY actor_count DESC) AS actor_count_rank
+  FROM film_counts
+)
+SELECT c.name AS category_name,
+       r.title,
+       r.actor_count,
+       r.actor_count_rank
+FROM ranked r
+JOIN category c ON r.category_id = c.category_id
+WHERE r.actor_count_rank = 1
+ORDER BY c.name ASC, r.actor_count_rank ASC
+LIMIT 5;","Action,Sky Miracle,12,1
 Animation,Titanic Boondock,12,1
 Children,Maker Gables,11,1
 Classics,Dracula Crystal,13,1
@@ -245,6 +432,43 @@ ORDER BY rental_date ASC;","148,2005-05-28,1,1
 148,2005-06-19,3,6
 148,2005-07-06,1,7
 148,2005-07-07,1,8
+148,2005-07-08,2,10","WITH top_customer AS (
+  SELECT customer_id
+  FROM rental
+  GROUP BY customer_id
+  ORDER BY COUNT(*) DESC
+  LIMIT 1
+),
+daily AS (
+  SELECT r.customer_id,
+         (r.rental_date::date) AS rental_date,
+         COUNT(*) AS daily_rental_count
+  FROM rental r
+  JOIN top_customer tc ON r.customer_id = tc.customer_id
+  GROUP BY r.customer_id, r.rental_date::date
+),
+cum AS (
+  SELECT
+    customer_id,
+    rental_date,
+    daily_rental_count,
+    SUM(daily_rental_count) OVER (PARTITION BY customer_id ORDER BY rental_date ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS cumulative_rental_count
+  FROM daily
+),
+limit_date AS (
+  SELECT MIN(rental_date) AS stop_date
+  FROM cum
+  WHERE cumulative_rental_count >= 10
+)
+SELECT customer_id, rental_date, daily_rental_count, cumulative_rental_count
+FROM cum
+WHERE (SELECT stop_date FROM limit_date) IS NULL
+   OR rental_date <= (SELECT stop_date FROM limit_date)
+ORDER BY rental_date;","148,2005-05-28,1,1
+148,2005-06-15,2,3
+148,2005-06-19,3,6
+148,2005-07-06,1,7
+148,2005-07-07,1,8
 148,2005-07-08,2,10"
 "서로 다른 두 영화가 같은 고객에게 대여된 경우를 '영화 묶음'이라고 정의할 때, 이러한 묶음이 가장 많이 발생한 영화 쌍을 구하시오. 최종 결과는 1번째 컬럼 'film1'(영화 쌍 중 첫 번째 영화 제목), 2번째 컬럼 'film2'(두 번째 영화 제목), 3번째 컬럼 'bundle_count'(해당 영화 쌍이 같은 고객에게 함께 대여된 횟수) 순서로 구성되어야 한다. 결과는 bundle_count 내림차순, 첫번째 영화, 두번째 영화 제목의 오름차순으로 정렬하고 가장 앞의 1개 행만 반환하시오.","SELECT
     f1.title AS film1,
@@ -260,7 +484,19 @@ JOIN film f2 ON i2.film_id = f2.film_id
 WHERE f1.film_id < f2.film_id -- 영화 쌍 중복 제거
 GROUP BY f1.title, f2.title
 ORDER BY bundle_count DESC, f1.title ASC, f2.title ASC
-LIMIT 1; -- 묶음 발생이 가장 많은 영화 쌍","Expendable Stallion,Lady Stage,7"
+LIMIT 1; -- 묶음 발생이 가장 많은 영화 쌍","Expendable Stallion,Lady Stage,7","SELECT f1.title AS film1,
+       f2.title AS film2,
+       COUNT(DISTINCT r1.customer_id) AS bundle_count
+FROM rental r1
+JOIN inventory i1 ON r1.inventory_id = i1.inventory_id
+JOIN film f1 ON i1.film_id = f1.film_id
+JOIN rental r2 ON r1.customer_id = r2.customer_id
+JOIN inventory i2 ON r2.inventory_id = i2.inventory_id
+JOIN film f2 ON i2.film_id = f2.film_id
+WHERE f1.film_id < f2.film_id
+GROUP BY f1.title, f2.title
+ORDER BY bundle_count DESC, film1 ASC, film2 ASC
+LIMIT 1;","Requiem Tycoon,Torque Bound,7"
 "결제 내역을 이용해 총 매출액이 처음으로 10,000달러 이상이 되는 시점을 찾고, 이때까지 걸린 소요일(일 수)을 계산하시오. 최종 결과는 1번째 컬럼 'days_to_10000'(가장 처음 발생한 결제 일자부터 총 매출 누적 합이 10,000달러 이상이 되는 최초 일자까지의 일수로, 시작일과 도달일을 모두 포함한 정수 값) 한 컬럼만 포함해야 한다.","WITH daily_revenue AS (
     SELECT
         payment_date::date AS payment_date, -- 결제 일자(시각 제외)
@@ -291,7 +527,23 @@ first_day AS (
 SELECT
     (t.threshold_date - f.first_payment_date) + 1 AS days_to_10000 -- 시작일과 도달일을 포함한 소요일
 FROM threshold_day t
-CROSS JOIN first_day f;",16
+CROSS JOIN first_day f;",16,"WITH daily AS (
+  SELECT payment_date::date AS day, SUM(amount) AS daily_sum
+  FROM payment
+  GROUP BY payment_date::date
+),
+cum AS (
+  SELECT day,
+         daily_sum,
+         SUM(daily_sum) OVER (ORDER BY day) AS running_total,
+         MIN(day) OVER () AS start_day
+  FROM daily
+)
+SELECT (day - start_day) + 1 AS days_to_10000
+FROM cum
+WHERE running_total >= 10000
+ORDER BY day
+LIMIT 1;",16
 "각 고객별 평균 결제 금액을 구한 뒤, 자신의 평균 결제 금액보다 더 큰 금액으로 결제한 거래만 조회하시오. 최종 결과는 1번째 컬럼 'customer_id'(고객 ID), 2번째 컬럼 'customer_name'(고객의 전체 이름을 first_name과 last_name을 공백으로 이어 붙인 문자열), 3번째 컬럼 'amount'(해당 거래의 결제 금액), 4번째 컬럼 'customer_avg_payment'(해당 고객의 평균 결제 금액으로 소수점 둘째 자리에서 반올림한 값) 순서로 구성되어야 한다. 결과는 amount_gap 내림차순, amount 내림차순, customer_id 오름차순으로 정렬하고 예시로 5개 행만 반환한다고 가정하시오.","WITH enriched AS (
     SELECT
         c.customer_id,
@@ -310,6 +562,24 @@ SELECT
 FROM enriched
 WHERE amount > customer_avg_payment -- 개인 평균보다 큰 거래만
 ORDER BY amount_gap DESC, customer_id ASC, amount DESC -- 차이가 큰 순서 상위 5개
+LIMIT 5;","592,Terrance Roush,11.99,3.85
+116,Victoria Gibson,11.99,4.11
+204,Rosemary Schmidt,11.99,4.34
+561,Ian Still,10.99,3.47
+237,Tanya Gilbert,11.99,4.47","SELECT
+  p.customer_id,
+  c.first_name || ' ' || c.last_name AS customer_name,
+  p.amount,
+  round(a.avg_amount, 2) AS customer_avg_payment
+FROM payment p
+JOIN customer c ON p.customer_id = c.customer_id
+JOIN (
+  SELECT customer_id, AVG(amount) AS avg_amount
+  FROM payment
+  GROUP BY customer_id
+) a ON p.customer_id = a.customer_id
+WHERE p.amount > a.avg_amount
+ORDER BY (p.amount - a.avg_amount) DESC, p.amount DESC, p.customer_id ASC
 LIMIT 5;","592,Terrance Roush,11.99,3.85
 116,Victoria Gibson,11.99,4.11
 204,Rosemary Schmidt,11.99,4.34
@@ -368,6 +638,44 @@ Music,Wizard Coldblooded,4.99,Alaska Phantom,0.99
 New,Wyoming Storm,4.99,Boulevard Mob,0.99
 Sci-Fi,Wonderland Christmas,4.99,Annie Identity,0.99
 Sports,Trading Pinocchio,4.99,Anonymous Human,0.99
+Travel,Working Microcosmos,4.99,Arsenic Independence,0.99","SELECT
+  c.name AS category_name,
+  me.title AS most_expensive_film,
+  me.rental_rate AS max_price,
+  ch.title AS cheapest_film,
+  ch.rental_rate AS min_price
+FROM category c
+LEFT JOIN LATERAL (
+  SELECT f.title, f.rental_rate
+  FROM film f
+  JOIN film_category fc ON fc.film_id = f.film_id
+  WHERE fc.category_id = c.category_id
+  ORDER BY f.rental_rate DESC, f.title DESC
+  LIMIT 1
+) me ON true
+LEFT JOIN LATERAL (
+  SELECT f.title, f.rental_rate
+  FROM film f
+  JOIN film_category fc ON fc.film_id = f.film_id
+  WHERE fc.category_id = c.category_id
+  ORDER BY f.rental_rate ASC, f.title ASC
+  LIMIT 1
+) ch ON true
+ORDER BY c.name;","Action,Werewolf Lola,4.99,Amadeus Holy,0.99
+Animation,Titanic Boondock,4.99,Alter Victory,0.99
+Children,Walls Artist,4.99,Beneath Rush,0.99
+Classics,Volume House,4.99,Alice Fantasia,0.99
+Comedy,Zorro Ark,4.99,Caper Motions,0.99
+Documentary,Wife Turn,4.99,Academy Dinosaur,0.99
+Drama,Witches Panic,4.99,Beethoven Exorcist,0.99
+Family,Virtual Spoilers,4.99,Bedazzled Married,0.99
+Foreign,Whale Bikini,4.99,Alamo Videotape,0.99
+Games,Wanda Chamber,4.99,Creatures Shakespeare,0.99
+Horror,Yentl Idaho,4.99,Arabia Dogma,0.99
+Music,Wizard Coldblooded,4.99,Alaska Phantom,0.99
+New,Wyoming Storm,4.99,Boulevard Mob,0.99
+Sci-Fi,Wonderland Christmas,4.99,Annie Identity,0.99
+Sports,Trading Pinocchio,4.99,Anonymous Human,0.99
 Travel,Working Microcosmos,4.99,Arsenic Independence,0.99"
 "각 카테고리별 평균 대여료가 전체 영화의 평균 대여료보다 높은 카테고리만 조회하시오. 최종 결과는 1번째 컬럼 'category_name'(카테고리 이름), 2번째 컬럼 'avg_rental_rate'(해당 카테고리 영화들의 평균 대여료, 소수점 둘째자리 반올림) 순서로 구성되어야 한다. 결과는 avg_rental_rate 내림차순으로 정렬하시오.","SELECT
     c.name AS category_name,
@@ -380,6 +688,21 @@ HAVING AVG(f.rental_rate) > (
     SELECT AVG(rental_rate) FROM film -- 전체 평균보다 높은 카테고리만
 )
 ORDER BY avg_rental_rate DESC; -- 평균 대여료 내림차순","Games,3.25
+Travel,3.24
+Sci-Fi,3.22
+Comedy,3.16
+Sports,3.13
+New,3.12
+Foreign,3.10
+Horror,3.03
+Drama,3.02","SELECT c.name AS category_name,
+       ROUND(AVG(f.rental_rate)::numeric, 2) AS avg_rental_rate
+FROM category c
+JOIN film_category fc ON c.category_id = fc.category_id
+JOIN film f ON fc.film_id = f.film_id
+GROUP BY c.category_id, c.name
+HAVING AVG(f.rental_rate) > (SELECT AVG(rental_rate) FROM film)
+ORDER BY avg_rental_rate DESC;","Games,3.25
 Travel,3.24
 Sci-Fi,3.22
 Comedy,3.16
@@ -404,7 +727,20 @@ LIMIT 5; -- 다양한 카테고리를 대여한 상위 5명","454,Alex Gresham,1
 467,Alvin Deloach,16
 522,Arnold Havens,16
 400,Bryan Hardison,16
-275,Carole Barnett,16"
+275,Carole Barnett,16","SELECT
+  c.customer_id,
+  c.first_name || ' ' || c.last_name AS customer_name,
+  COUNT(DISTINCT fc.category_id) AS distinct_category_count
+FROM rental r
+JOIN film_category fc ON r.inventory_id = fc.film_id
+JOIN customer c ON r.customer_id = c.customer_id
+GROUP BY c.customer_id, c.first_name, c.last_name
+ORDER BY distinct_category_count DESC, customer_name ASC
+LIMIT 5;","279,Dianne Shelton,10
+302,Michael Silverman,10
+51,Alice Stewart,9
+275,Carole Barnett,9
+447,Clifford Bowens,9"
 "각 고객별로 대여 건수 대비 총 결제액(건당 평균 결제액)을 계산하고, 건당 평균 결제액이 가장 높은 상위 5명의 고객을 조회하시오. 최종 결과는 1번째 컬럼 'customer_id'(고객 ID), 2번째 컬럼 'customer_name'(고객의 전체 이름을 first_name과 last_name을 공백으로 이어 붙인 문자열), 3번째 컬럼 'rental_count'(고객의 서로 다른 대여 건수), 4번째 컬럼 'total_payment'(해당 고객의 총 결제 금액), 5번째 컬럼 'avg_payment_per_rental'(total_payment를 rental_count로 나눈 값으로 소수점 둘째 자리에서 반올림한 값) 순서로 구성되어야 한다. 결과는 avg_payment_per_rental 내림차순, customer_name 오름차순으로 정렬하고 상위 5개 행만 반환하시오.","SELECT
     c.customer_id,
 
@@ -422,7 +758,30 @@ LIMIT 5; -- 건당 평균 결제액 상위 5명","187,Brittany Riley,27,151.73,5
 321,Kevin Schuler,17,93.83,5.52
 19,Ruth Martinez,18,98.82,5.49
 3,Linda Williams,24,130.76,5.45
-311,Paul Trout,15,80.85,5.39"
+311,Paul Trout,15,80.85,5.39","SELECT
+  c.customer_id,
+  c.first_name || ' ' || c.last_name AS customer_name,
+  r.rental_count,
+  p.total_payment,
+  ROUND(p.total_payment::numeric / r.rental_count, 2) AS avg_payment_per_rental
+FROM customer c
+JOIN (
+  SELECT customer_id, COUNT(DISTINCT rental_id) AS rental_count
+  FROM rental
+  GROUP BY customer_id
+) r ON c.customer_id = r.customer_id
+JOIN (
+  SELECT customer_id, SUM(amount) AS total_payment
+  FROM payment
+  GROUP BY customer_id
+) p ON c.customer_id = p.customer_id
+WHERE r.rental_count > 0
+ORDER BY avg_payment_per_rental DESC, customer_name ASC
+LIMIT 5;","187,Brittany Riley,28,151.73,5.42
+583,Marshall Thorn,23,117.77,5.12
+3,Linda Williams,26,130.76,5.03
+591,Kent Arsenault,27,134.73,4.99
+178,Marion Snyder,39,194.61,4.99"
 "각 배우별로 출연한 영화의 평균 대여료를 계산하고, 이 평균 대여료가 전체 영화 평균 대여료보다 높은 배우만 조회하시오. 최종 결과는 1번째 컬럼 'actor_id'(배우 ID), 2번째 컬럼 'actor_name'(배우의 전체 이름을 first_name과 last_name을 공백으로 이어 붙인 문자열), 3번째 컬럼 'avg_rental_rate'(해당 배우가 출연한 영화들의 평균 대여료로 소수점 둘째 자리에서 반올림한 값) 순서로 구성되어야 한다. 결과는 avg_rental_rate 내림차순, actor_name 오름차순으로 상위 5개행을 조회하시오.","SELECT
     a.actor_id,
     a.first_name || ' ' || a.last_name AS actor_name,
@@ -434,6 +793,19 @@ GROUP BY a.actor_id, a.first_name, a.last_name
 HAVING AVG(f.rental_rate) > (
     SELECT AVG(rental_rate) FROM film -- 전체 평균보다 높은 배우
 )
+ORDER BY avg_rental_rate DESC, actor_name ASC
+LIMIT 5;","134,Gene Hopkins,3.81
+160,Chris Depp,3.79
+55,Fay Kilmer,3.79
+6,Bette Nicholson,3.69
+8,Matthew Johansson,3.69","SELECT a.actor_id,
+       a.first_name || ' ' || a.last_name AS actor_name,
+       ROUND(AVG(f.rental_rate), 2) AS avg_rental_rate
+FROM film_actor fa
+JOIN actor a ON fa.actor_id = a.actor_id
+JOIN film f ON fa.film_id = f.film_id
+GROUP BY a.actor_id, a.first_name, a.last_name
+HAVING AVG(f.rental_rate) > (SELECT AVG(rental_rate) FROM film)
 ORDER BY avg_rental_rate DESC, actor_name ASC
 LIMIT 5;","134,Gene Hopkins,3.81
 160,Chris Depp,3.79
@@ -481,7 +853,47 @@ ORDER BY sort_group ASC, last_rental_date DESC NULLS LAST, title ASC -- 최근 �
 33,Apollo Teen,0,NULL
 36,Argonauts Town,0,NULL
 38,Ark Ridgemont,0,NULL
-41,Arsenic Independence,0,NULL"
+41,Arsenic Independence,0,NULL","WITH film_stats AS (
+  SELECT
+    f.film_id,
+    f.title,
+    COUNT(r.rental_id) AS rental_count,
+    MAX(r.rental_date) AS last_rental_date
+  FROM film f
+  LEFT JOIN inventory i ON i.film_id = f.film_id
+  LEFT JOIN rental r ON r.inventory_id = i.inventory_id
+  GROUP BY f.film_id, f.title
+),
+recent AS (
+  SELECT film_id, title, rental_count, last_rental_date
+  FROM film_stats
+  WHERE last_rental_date IS NOT NULL
+  ORDER BY last_rental_date DESC, title ASC
+  LIMIT 5
+),
+unrented AS (
+  SELECT film_id, title, rental_count, last_rental_date
+  FROM film_stats
+  WHERE rental_count = 0
+  ORDER BY title ASC
+  LIMIT 5
+)
+SELECT film_id, title, rental_count, last_rental_date
+FROM (
+  SELECT * FROM recent
+  UNION ALL
+  SELECT * FROM unrented
+) t
+ORDER BY (last_rental_date IS NOT NULL) DESC, last_rental_date DESC NULLS LAST, title ASC;","2,Ace Goldfinger,7,2006-02-14 15:16:03
+4,Affair Prejudice,23,2006-02-14 15:16:03
+5,African Egg,12,2006-02-14 15:16:03
+13,Ali Forever,9,2006-02-14 15:16:03
+17,Alone Trip,18,2006-02-14 15:16:03
+14,Alice Fantasia,0,
+33,Apollo Teen,0,
+36,Argonauts Town,0,
+38,Ark Ridgemont,0,
+41,Arsenic Independence,0,"
 "각 점포별로 총 매출액과 고객 1인당 평균 매출액을 계산하고, 고객 1인당 평균 매출액이 높은 순으로 정렬하시오. 최종 결과는 1번째 컬럼 'store_id'(점포 ID), 2번째 컬럼 'total_revenue'(해당 점포에서 발생한 총 매출액), 3번째 컬럼 'customer_count'(해당 점포에서 결제한 서로 다른 고객 수), 4번째 컬럼 'revenue_per_customer'(총 매출액을 고객 수로 나눈 값으로 소수점 둘째 자리에서 반올림한 값) 순서로 구성되어야 한다. 결과는 revenue_per_customer 내림차순으로 정렬하고 상위 5개 행만 반환하시오.","SELECT
     s.store_id,
     SUM(p.amount) AS total_revenue, -- 점포별 총 매출액
@@ -495,6 +907,15 @@ GROUP BY s.store_id
 ORDER BY revenue_per_customer DESC -- 고객당 매출 내림차순
 LIMIT 5;
 ","2,31059.92,599,51.85
+1,30252.12,599,50.50","SELECT s.store_id,
+       SUM(p.amount) AS total_revenue,
+       COUNT(DISTINCT p.customer_id) AS customer_count,
+       ROUND(SUM(p.amount) / COUNT(DISTINCT p.customer_id), 2) AS revenue_per_customer
+FROM payment p
+JOIN staff s ON p.staff_id = s.staff_id
+GROUP BY s.store_id
+ORDER BY revenue_per_customer DESC
+LIMIT 5;","2,31059.92,599,51.85
 1,30252.12,599,50.50"
 "월별로 신규 고객 수(해당 월에 처음 결제한 고객 수)를 계산하고, 신규 고객 수가 가장 많았던 상위 3개월을 조회하시오. 최종 결과는 1번째 컬럼 'first_payment_month'(연-월 형식의 문자열), 2번째 컬럼 'new_customer_count'(해당 월에 처음 결제한 고객 수) 순서로 구성되어야 한다. 결과는 new_customer_count 내림차순, first_payment_month 오름차순으로 정렬하고 상위 3개 행만 반환하시오.","WITH first_payment AS (
     SELECT
@@ -511,6 +932,15 @@ FROM first_payment
 GROUP BY first_payment_month
 ORDER BY new_customer_count DESC, first_payment_month ASC
 LIMIT 3; -- 신규 고객 수 상위 3개월","2007-02,518
+2007-03,81","SELECT first_payment_month, COUNT(*) AS new_customer_count
+FROM (
+  SELECT customer_id, to_char(MIN(payment_date), 'YYYY-MM') AS first_payment_month
+  FROM payment
+  GROUP BY customer_id
+) t
+GROUP BY first_payment_month
+ORDER BY new_customer_count DESC, first_payment_month ASC
+LIMIT 3;","2007-02,518
 2007-03,81"
 "각 고객별로 연속된 두 대여 사이의 일자 수(대여 간격)를 계산하고, 이 간격의 평균이 가장 짧은 상위 10명의 고객을 조회하시오. 단, 한 고객에게 최소 2개 이상의 간격이 존재하는 경우(즉, 대여 기록이 최소 3건 이상인 경우)만 대상으로 한다. 최종 결과는 1번째 컬럼 'customer_id'(고객 ID), 2번째 컬럼 'customer_name'(고객의 전체 이름을 first_name과 last_name을 공백으로 이어 붙인 문자열), 3번째 컬럼 'avg_gap_days'(해당 고객의 대여 간격 평균 일수로 소수점 둘째 자리에서 반올림한 값), 4번째 컬럼 'gap_count'(대여 간격이 계산된 구간 수) 순서로 구성되어야 한다. 결과는 avg_gap_days 오름차순, gap_count 내림차순으로 정렬하고 상위 10개 행만 반환하시오.","WITH customer_rentals AS (
     SELECT
@@ -545,7 +975,39 @@ LIMIT 10; -- 평균 간격이 짧은 상위 10명","148,Eleanor Hunt,1.58,45
 144,Clara Shaw,1.76,41
 329,Frank Waggoner,1.77,31
 78,Lori Wood,1.77,30
-137,Rhonda Kennedy,1.84,38"
+137,Rhonda Kennedy,1.84,38","WITH gaps AS (
+  SELECT
+    customer_id,
+    EXTRACT(EPOCH FROM (LEAD(rental_date) OVER (PARTITION BY customer_id ORDER BY rental_date) - rental_date)) / 86400.0 AS gap_days
+  FROM rental
+)
+SELECT
+  c.customer_id,
+  c.first_name || ' ' || c.last_name AS customer_name,
+  ROUND(a.avg_gap_days::numeric, 2) AS avg_gap_days,
+  a.gap_count
+FROM (
+  SELECT
+    customer_id,
+    AVG(gap_days) AS avg_gap_days,
+    COUNT(*) AS gap_count
+  FROM gaps
+  WHERE gap_days IS NOT NULL
+  GROUP BY customer_id
+  HAVING COUNT(*) >= 2
+) a
+JOIN customer c ON c.customer_id = a.customer_id
+ORDER BY avg_gap_days ASC, gap_count DESC
+LIMIT 10;","148,Eleanor Hunt,1.92,45
+526,Karl Seal,2.00,44
+129,Carrie Porter,2.02,33
+30,Melissa King,2.05,33
+38,Martha Gonzalez,2.10,33
+342,Harold Martino,2.15,31
+144,Clara Shaw,2.16,41
+329,Frank Waggoner,2.22,31
+78,Lori Wood,2.23,30
+418,Jeff East,2.24,29"
 "각 카테고리별로 가장 많이 대여된 영화 1편을 찾고, 그 영화의 대여 횟수와 함께 조회하시오. 최종 결과는 1번째 컬럼 'category_name'(카테고리 이름), 2번째 컬럼 'title'(카테고리에 속한 영화 제목), 3번째 컬럼 'rental_count'(해당 영화의 대여 횟수) 순서로 구성되어야 한다. 각 카테고리마다 rental_count가 최대인 영화만 선택하고, 전체 결과는 rental_count 내림차순, category_name 오름차순으로 정렬하시오.","WITH film_rentals AS (
     SELECT
         f.film_id,
@@ -585,6 +1047,43 @@ Family,Apache Divine,31
 Sci-Fi,Goodfellas Salute,31
 Action,Rugrats Shakespeare,30
 Horror,Pulp Beverly,30
+Sports,Gleaming Jawbreaker,29","WITH film_rentals AS (
+  SELECT
+    c.category_id,
+    c.name AS category_name,
+    f.film_id,
+    f.title,
+    COUNT(r.rental_id) AS rental_count
+  FROM film f
+  JOIN film_category fc ON f.film_id = fc.film_id
+  JOIN category c ON fc.category_id = c.category_id
+  LEFT JOIN inventory i ON f.film_id = i.film_id
+  LEFT JOIN rental r ON i.inventory_id = r.inventory_id
+  GROUP BY c.category_id, c.name, f.film_id, f.title
+)
+SELECT category_name, title, rental_count
+FROM (
+  SELECT
+    fr.*,
+    ROW_NUMBER() OVER (PARTITION BY category_id ORDER BY rental_count DESC, title ASC) AS rn
+  FROM film_rentals fr
+) t
+WHERE rn = 1
+ORDER BY rental_count DESC, category_name ASC;","Travel,Bucket Brotherhood,34
+Foreign,Rocketeer Mother,33
+Animation,Juggler Hardly,32
+Games,Forward Temple,32
+Music,Scalawag Duck,32
+New,Ridgemont Submarine,32
+Children,Robbers Joon,31
+Classics,Timberland Sky,31
+Comedy,Zorro Ark,31
+Documentary,Wife Turn,31
+Drama,Hobbit Alien,31
+Family,Apache Divine,31
+Sci-Fi,Goodfellas Salute,31
+Action,Rugrats Shakespeare,30
+Horror,Pulp Beverly,30
 Sports,Gleaming Jawbreaker,29"
 "각 배우별로 출연한 영화의 평균 상영 시간을 계산하고, 평균 상영 시간이 가장 긴 상위 10명의 배우를 조회하시오. 최종 결과는 1번째 컬럼 'actor_id'(배우 ID), 2번째 컬럼 'actor_name'(배우의 전체 이름을 first_name과 last_name을 공백으로 이어 붙인 문자열), 3번째 컬럼 'avg_length'(해당 배우가 출연한 영화들의 평균 상영 시간으로 소수점 둘째 자리에서 반올림한 값), 4번째 컬럼 'film_count'(해당 배우가 출연한 영화 수) 순서로 구성되어야 한다. 결과는 avg_length 내림차순, film_count 내림차순으로 정렬하고 상위 10개 행만 반환하시오.","SELECT
     a.actor_id,
@@ -598,6 +1097,24 @@ GROUP BY a.actor_id, a.first_name, a.last_name
 HAVING COUNT(f.film_id) >= 3 -- 표본 안정성을 위해 3편 이상 출연
 ORDER BY avg_length DESC, film_count DESC
 LIMIT 10; -- 평균 상영 시간이 긴 상위 10명","35,Judy Dean,137.73,15
+156,Fay Wood,133.82,22
+16,Fred Costner,131.56,27
+95,Daryl Wahlberg,130.94,31
+8,Matthew Johansson,130.85,20
+31,Sissy Sobieski,130.83,18
+191,Gregory Gooding,130.77,30
+6,Bette Nicholson,130.50,20
+174,Michael Bening,130.13,24
+193,Burt Temple,129.83,23","SELECT a.actor_id,
+       a.first_name || ' ' || a.last_name AS actor_name,
+       ROUND(AVG(f.length)::numeric, 2) AS avg_length,
+       COUNT(DISTINCT f.film_id) AS film_count
+FROM actor a
+JOIN film_actor fa ON a.actor_id = fa.actor_id
+JOIN film f ON fa.film_id = f.film_id
+GROUP BY a.actor_id, a.first_name, a.last_name
+ORDER BY avg_length DESC, film_count DESC
+LIMIT 10;","35,Judy Dean,137.73,15
 156,Fay Wood,133.82,22
 16,Fred Costner,131.56,27
 95,Daryl Wahlberg,130.94,31
@@ -662,7 +1179,48 @@ ORDER BY target_percentile ASC;","10,2,Jon Stephens,7265,30813.33
 20,2,Jon Stephens,7265,30813.33
 30,2,Jon Stephens,7265,30813.33
 40,2,Jon Stephens,7265,30813.33
-50,1,Mike Hillyer,7327,30498.71"
+50,1,Mike Hillyer,7327,30498.71","WITH
+rental_agg AS (
+  SELECT staff_id, COUNT(*) AS rental_count
+  FROM rental
+  GROUP BY staff_id
+),
+payment_agg AS (
+  SELECT staff_id, SUM(amount) AS total_revenue
+  FROM payment
+  GROUP BY staff_id
+),
+staff_stats AS (
+  SELECT
+    s.staff_id,
+    s.first_name || ' ' || s.last_name AS staff_name,
+    COALESCE(r.rental_count, 0) AS rental_count,
+    COALESCE(p.total_revenue, 0) AS total_revenue
+  FROM staff s
+  LEFT JOIN rental_agg r ON s.staff_id = r.staff_id
+  LEFT JOIN payment_agg p ON s.staff_id = p.staff_id
+),
+percentiles AS (
+  SELECT
+    (pct * 100)::int AS target_percentile,
+    percentile_disc(pct) WITHIN GROUP (ORDER BY rental_count) AS target_count
+  FROM (SELECT unnest(ARRAY[0.1,0.2,0.3,0.4,0.5]) AS pct) pct
+  CROSS JOIN (SELECT rental_count FROM staff_stats) ss
+  GROUP BY pct
+)
+SELECT
+  p.target_percentile,
+  s.staff_id,
+  s.staff_name,
+  s.rental_count,
+  s.total_revenue
+FROM percentiles p
+JOIN staff_stats s ON s.rental_count = p.target_count
+ORDER BY p.target_percentile;","10,2,Jon Stephens,8004,31059.92
+20,2,Jon Stephens,8004,31059.92
+30,2,Jon Stephens,8004,31059.92
+40,2,Jon Stephens,8004,31059.92
+50,2,Jon Stephens,8004,31059.92"
 "각 카테고리별로 영화의 평균 상영 시간이 전체 영화의 평균 상영 시간보다 긴 카테고리만 조회하시오. 최종 결과는 1번째 컬럼 'category_name'(카테고리 이름), 2번째 컬럼 'avg_length'(해당 카테고리 영화들의 평균 상영 시간으로 소수점 둘째 자리에서 반올림한 값) 순서로 구성되어야 한다. 결과는 avg_length 내림차순으로 정렬하시오.","SELECT
     c.name AS category_name,
     ROUND(AVG(f.length), 2) AS avg_length -- 카테고리별 평균 상영 시간
@@ -673,6 +1231,17 @@ GROUP BY c.category_id, c.name
 HAVING AVG(f.length) > (
     SELECT AVG(length) FROM film -- 전체 평균보다 긴 카테고리만
 )
+ORDER BY avg_length DESC;","Sports,128.20
+Games,127.84
+Foreign,121.70
+Drama,120.84
+Comedy,115.83","SELECT c.name AS category_name,
+       ROUND(AVG(f.length)::numeric, 2) AS avg_length
+FROM category c
+JOIN film_category fc ON fc.category_id = c.category_id
+JOIN film f ON f.film_id = fc.film_id
+GROUP BY c.category_id, c.name
+HAVING AVG(f.length) > (SELECT AVG(length) FROM film)
 ORDER BY avg_length DESC;","Sports,128.20
 Games,127.84
 Foreign,121.70
@@ -710,6 +1279,40 @@ JOIN category_counts cc ON fs.film_id = cc.film_id
 WHERE fs.rental_count > 0 -- 실제 대여 이력이 있는 영화만
 ORDER BY rental_per_category DESC NULLS LAST, fs.rental_count DESC, title ASC
 LIMIT 10; -- 비율이 높은 상위 10편","103,Bucket Brotherhood,34,1,34.00
+738,Rocketeer Mother,33,1,33.00
+331,Forward Temple,32,1,32.00
+382,Grit Clockwork,32,1,32.00
+489,Juggler Hardly,32,1,32.00
+730,Ridgemont Submarine,32,1,32.00
+767,Scalawag Duck,32,1,32.00
+31,Apache Divine,31,1,31.00
+369,Goodfellas Salute,31,1,31.00
+418,Hobbit Alien,31,1,31.00","WITH rental_counts AS (
+  SELECT i.film_id, COUNT(r.rental_id) AS rental_count
+  FROM rental r
+  JOIN inventory i ON r.inventory_id = i.inventory_id
+  GROUP BY i.film_id
+),
+category_counts AS (
+  SELECT film_id, COUNT(DISTINCT category_id) AS category_count
+  FROM film_category
+  GROUP BY film_id
+)
+SELECT
+  f.film_id,
+  f.title,
+  COALESCE(rc.rental_count, 0) AS rental_count,
+  COALESCE(cc.category_count, 0) AS category_count,
+  CASE
+    WHEN cc.category_count IS NOT NULL AND cc.category_count > 0
+    THEN ROUND(COALESCE(rc.rental_count, 0)::numeric / cc.category_count, 2)
+    ELSE NULL
+  END AS rental_per_category
+FROM film f
+LEFT JOIN rental_counts rc ON rc.film_id = f.film_id
+LEFT JOIN category_counts cc ON cc.film_id = f.film_id
+ORDER BY rental_per_category DESC NULLS LAST, rental_count DESC, title ASC
+LIMIT 10;","103,Bucket Brotherhood,34,1,34.00
 738,Rocketeer Mother,33,1,33.00
 331,Forward Temple,32,1,32.00
 382,Grit Clockwork,32,1,32.00

@@ -254,6 +254,30 @@ SEED_MODE=lite
 
 > 주의: ON이면 질문마다 추가 LLM 호출이 발생할 수 있어 비용/지연이 증가합니다.
 
+---
+## TEXT2SQL-FLOW(SQL-aware Data Augmentation) 적용 아이디어
+
+이 프로젝트는 **TEXT2SQL-FLOW** 스타일로 시드 SQL을 증강해 대규모 NL/SQL 페어를 생성하는 파이프라인을 포함합니다.  
+자세한 설명과 실행 방법은 `TEXT2SQL_FLOW_INTEGRATION.md`를 참고하세요.  
+참고(개요/요약): `https://www.themoonlight.io/ko/review/text2sql-flow-a-robust-sql-aware-data-augmentation-framework-for-text-to-sql`
+
+### 실행(데이터 증강)
+아래 스크립트는 시드 CSV를 입력으로 받아, SQL 증강 → 실행 필터 → 질문 생성 후 결과 CSV를 생성합니다.
+
+```bash
+python experiments/run_text2sql_flow.py \
+  --seed-csv experiments/dvdrental_seed_trainset.csv \
+  --out-csv experiments/text2sql_flow_augmented.csv
+```
+
+### (권장) few-shot 컬렉션으로 적재
+생성된 증강 데이터셋을 `seed_examples` 테이블에 적재하면, SEED(full)가 유사 예시 검색을 통해 활용할 수 있습니다.
+
+```bash
+python experiments/load_text2sql_flow_fewshot.py \
+  --in-csv experiments/text2sql_flow_augmented.csv
+```
+
 
 ---
 

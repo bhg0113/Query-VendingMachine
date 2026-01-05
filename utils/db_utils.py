@@ -49,6 +49,34 @@ def run_query(query: str, params: dict = None, dvd: bool = True):
         return [dict(row._mapping) for row in result]
 
 
+def run_query_with_statement_timeout(
+    query: str,
+    params: dict = None,
+    dvd: bool = True,
+    statement_timeout_ms: int | None = 2000,
+):
+    """
+    statement_timeout을 설정한 뒤 SELECT 쿼리를 실행합니다.
+
+    TEXT2SQL-FLOW의 SQL Execution Filter처럼 "너무 오래 걸리는 쿼리"를 걸러낼 때 사용합니다.
+
+    Args:
+        query (str): 실행할 SQL 쿼리
+        params (dict, optional): 쿼리 파라미터
+        dvd (bool): dvdrental DB 사용 여부
+        statement_timeout_ms (int | None): statement_timeout(ms). None이면 설정하지 않음.
+
+    Returns:
+        list: 쿼리 결과를 딕셔너리 리스트로 반환
+    """
+    engine = engine_dvd if dvd else engine_emb
+    with engine.connect() as conn:
+        if statement_timeout_ms is not None:
+            conn.execute(text("SET statement_timeout = :timeout_ms"), {"timeout_ms": int(statement_timeout_ms)})
+        result = conn.execute(text(query), params or {})
+        return [dict(row._mapping) for row in result]
+
+
 def run_command(query: str, params: dict = None, dvd: bool = True):
     """
     SQL INSERT/UPDATE/DELETE 명령어 실행
